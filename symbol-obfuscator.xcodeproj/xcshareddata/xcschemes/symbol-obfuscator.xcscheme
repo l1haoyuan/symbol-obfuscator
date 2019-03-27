@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "01EB825E13A590D9003EDE60"
-               BuildableName = "ppios-rename"
+               BuildableName = "symbol-obfuscator"
                BlueprintName = "symbol-obfuscator"
                ReferencedContainer = "container:symbol-obfuscator.xcodeproj">
             </BuildableReference>
@@ -43,7 +43,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "01EB825E13A590D9003EDE60"
-            BuildableName = "ppios-rename"
+            BuildableName = "symbol-obfuscator"
             BlueprintName = "symbol-obfuscator"
             ReferencedContainer = "container:symbol-obfuscator.xcodeproj">
          </BuildableReference>
@@ -67,7 +67,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "01EB825E13A590D9003EDE60"
-            BuildableName = "ppios-rename"
+            BuildableName = "symbol-obfuscator"
             BlueprintName = "symbol-obfuscator"
             ReferencedContainer = "container:symbol-obfuscator.xcodeproj">
          </BuildableReference>
@@ -86,7 +86,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "01EB825E13A590D9003EDE60"
-            BuildableName = "ppios-rename"
+            BuildableName = "symbol-obfuscator"
             BlueprintName = "symbol-obfuscator"
             ReferencedContainer = "container:symbol-obfuscator.xcodeproj">
          </BuildableReference>

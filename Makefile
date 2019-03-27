@@ -1,10 +1,10 @@
 # Copyright 2016-2018 PreEmptive Solutions, LLC
 # See LICENSE.txt for licensing information
 
-PROJECT_NAME=PPiOS-Rename
+PROJECT_NAME=symbol-obfuscator
 NUMERIC_VERSION=1.3.0
 VERSION=v$(NUMERIC_VERSION)
-PROGRAM_NAME=ppios-rename
+PROGRAM_NAME=symbol-obfuscator
 
 BUILD_DIR=build
 PROGRAM="$(shell pwd)/$(BUILD_DIR)/Build/Products/Release/$(PROGRAM_NAME)"
@@ -18,11 +18,11 @@ DIST_DIR=$(PROJECT_NAME)-$(VERSION)
 FULL_VERSION=$(VERSION)$(GIT_HASH)$(BUILD_NUMBER)
 ARCHIVE_DIR=$(FULL_VERSION)
 DIST_PACKAGE=$(ARCHIVE_DIR)/$(PROJECT_NAME)-$(FULL_VERSION).tgz
-WORKSPACE=ppios-rename.xcworkspace
+WORKSPACE=symbol-obfuscator.xcworkspace
 
 XCODEBUILD_OPTIONS=\
 	-workspace $(WORKSPACE) \
-	-scheme ppios-rename \
+	-scheme symbol-obfuscator \
 	-configuration Release \
 	-derivedDataPath $(BUILD_DIR) \
 	-reporter plain \
@@ -50,7 +50,7 @@ program: Pods
 
 .PHONY: check
 check:
-	( cd test/tests ; PPIOS_RENAME=$(PROGRAM) README=$(README) NUMERIC_VERSION=$(NUMERIC_VERSION) ./test-suite.sh )
+	( cd test/tests ; symbol-obfuscator=$(PROGRAM) README=$(README) NUMERIC_VERSION=$(NUMERIC_VERSION) ./test-suite.sh )
 
 .PHONY: archive
 archive: package-check distclean archive-dir program check $(DIST_PACKAGE)
