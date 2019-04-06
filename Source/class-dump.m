@@ -22,7 +22,7 @@
 #import "CDSymbolMapper.h"
 #import "CDSystemProtocolsProcessor.h"
 
-NSString *defaultSymbolMappingPath = @"symbols.map";
+NSString *defaultSymbolMappingPath = @"symbols.json";
 
 static NSString *const SDK_PATH_PATTERN
         = @"/Applications/Xcode.app/Contents/Developer"
@@ -31,27 +31,26 @@ static NSString *const SDK_PATH_PATTERN
 void print_usage(void)
 {
     fprintf(stderr,
-            "PreEmptive Protection for iOS - Rename, version " CLASS_DUMP_VERSION "\n"
-            "www.preemptive.com\n"
-            "\n"
             "Usage:\n"
-            "  ppios-rename --analyze [options] <Mach-O file>\n"
-            "  ppios-rename --obfuscate-sources [options]\n"
-            "  ppios-rename --translate-crashdump [options] <input file> <output file>\n"
-            "  ppios-rename --list-arches <Mach-O file>\n"
-            "  ppios-rename --version\n"
-            "  ppios-rename --help\n"
+            "  symbol-obfuscator [--analyze] [options] <Mach-O file>\n"
+            "  symbol-obfuscator --obfuscate-sources [options]\n"
+            "  symbol-obfuscator --translate-crashdump [options] <input file> <output file>\n"
+            "  symbol-obfuscator --list-arches <Mach-O file>\n"
+            "  symbol-obfuscator --version\n"
+            "  symbol-obfuscator --help\n"
             "\n"
             "Common options:\n"
             "  --symbols-map <symbols.map>  Path to symbol map file\n"
             "\n"
             "Additional options for --analyze:\n"
-            "  -F '[!]<pattern>'            Filter classes/protocols/categories\n"
+            "  -F '[!]<pattern>'            Filter classes/protocols/categories. if specified any inclusions, will excludes others\n"
             "  -x '<pattern>'               Exclude arbitrary symbols\n"
             "  --arch <arch>                Specify architecture from universal binary\n"
             "  --sdk-root <path>            Specify full SDK root path\n"
             "  --sdk-ios <version>          Specify iOS SDK by version\n"
             "  --framework <name>           Override the detected framework name\n"
+            "  --length <number>            Specify length for generated random string, default is same as the original string\n"
+            "  --exclude-classname          Specify for obfuscating method names only\n"
             "\n"
             "Additional options for --obfuscate-sources:\n"
             "  --storyboards <path>         Alternate path for XIBs and storyboards\n"
@@ -73,6 +72,12 @@ void print_usage(void)
 #define PPIOS_OPT_OBFUSCATE 13
 #define PPIOS_OPT_EMIT_EXCLUDES 14
 #define PPIOS_OPT_FRAMEWORK_NAME 15
+
+#define SO_OPT_LENGTH 16
+#define SO_OPT_METHNAME_ONLY 17
+#define SO_OPT_COMPLETE_METHNAME 18
+#define SO_OPT_INVERT_OUTPUT 19
+
 static char* programName;
 
 static NSString *resolveSDKPath(NSFileManager *fileManager,
@@ -149,6 +154,10 @@ int main(int argc, char *argv[])
         NSString *sdkIOSOption = nil;
         NSString *diagnosticFilesPrefix;
         NSString *frameworkName = nil;
+        NSInteger randomStrLen = -1;
+        BOOL methodNameOnly = NO;
+        BOOL shouldKeepMethname = NO;
+        BOOL shouldInvertOutput = NO;
 
         int ch;
         BOOL errorFlag = NO;
@@ -169,6 +178,10 @@ int main(int argc, char *argv[])
                 { "translate-crashdump",     no_argument,       NULL, CD_OPT_TRANSLATE_CRASH},
                 { "translate-dsym",          no_argument,       NULL, CD_OPT_TRANSLATE_DSYM},
                 { "help",                    no_argument,       NULL, 'h'},
+                { "length",                  required_argument, NULL, SO_OPT_LENGTH},
+                { "methname-only",           no_argument,       NULL, SO_OPT_METHNAME_ONLY},
+                { "complete-methname",       no_argument,       NULL, SO_OPT_COMPLETE_METHNAME},
+                { "invert",                  no_argument,       NULL, SO_OPT_INVERT_OUTPUT},
                 { NULL,                      0,                 NULL, 0 },
         };
 
@@ -183,13 +196,11 @@ int main(int argc, char *argv[])
         BOOL hasMode = NO;
 
         while ( (ch = getopt_long(argc, argv, "F:x:h", longopts, NULL)) != -1) {
-
+            
+            BOOL matchMode = YES;
             if(!hasMode) {
                 //should only run on first iteration
                 switch (ch) {
-                    case PPIOS_OPT_ANALYZE:
-                        shouldAnalyze = YES;
-                        break;
                     case PPIOS_OPT_OBFUSCATE:
                         shouldObfuscate = YES;
                         break;
@@ -208,11 +219,18 @@ int main(int argc, char *argv[])
                     case 'h':
                         shouldShowUsage = YES;
                         break;
+                    case PPIOS_OPT_ANALYZE:
+                        shouldAnalyze = YES;
+                        break;
                     default:
-                        terminateWithError(1, "You must specify the mode of operation as the first argument");
+                        shouldAnalyze = YES;
+                        matchMode = NO;
+                        break;
                 }
                 hasMode = YES;
-                continue; //skip this iteration..
+                if (matchMode) {
+                    continue;
+                }
             }
 
             switch (ch) {
@@ -255,16 +273,35 @@ int main(int argc, char *argv[])
                     }
                     break;
                 }
+                case SO_OPT_LENGTH: {
+                    checkOnlyAnalyzeMode("--length", shouldAnalyze);
+                    NSInteger len = [[NSString stringWithUTF8String:optarg] integerValue];
+                    if (len > 0) {
+                        randomStrLen = len;
+                    }
+                    break;
+                }
+                case SO_OPT_METHNAME_ONLY: {
+                    checkOnlyAnalyzeMode("--methname-only", shouldAnalyze);
+                    methodNameOnly = YES;
+                    break;
+                }
+                case SO_OPT_COMPLETE_METHNAME: {
+                    checkOnlyAnalyzeMode("--complete-methname", shouldAnalyze);
+                    shouldKeepMethname = YES;
+                    break;
+                }
+                case SO_OPT_INVERT_OUTPUT: {
+                    checkOnlyAnalyzeMode("--invert", shouldAnalyze);
+                    shouldInvertOutput = YES;
+                    break;
+                }
 
                 case 'F': {
                     checkOnlyAnalyzeMode("-F", shouldAnalyze);
                     NSString *value = [NSString stringWithUTF8String:optarg];
                     if ([value length] == 0 || ([value length] == 1 && [value hasPrefix:@"!"])){
                         terminateWithError(1, "-F must not be blank");
-                    }
-                    if ((commandLineClassFilters.count == 0) && ![value hasPrefix:@"!"]) {
-                        reportWarning("Warning: include filters without a preceding exclude filter "
-                                "have no effect");
                     }
                     [commandLineClassFilters addObject:value];
                     break;
@@ -394,8 +431,8 @@ int main(int argc, char *argv[])
                     printf("%s\n", [[[macho archNames] componentsJoinedByString:@" "] UTF8String]);
                 }
             }
-        }else if(shouldAnalyze){
-            if(firstArg == nil){
+        } else if(shouldAnalyze) {
+            if(firstArg == nil) {
                 terminateWithError(1, "Input file must be specified for --analyze");
             }
             NSString *executablePath = nil;
@@ -447,8 +484,22 @@ int main(int argc, char *argv[])
                 exit(result);
             }
             [classDump registerTypes];
+            
             NSArray<NSString *> *classFilters
                     = assembleClassFilters(classDump, commandLineClassFilters);
+            
+            __block BOOL containInclusion = NO;
+            [classFilters enumerateObjectsWithOptions:NSEnumerationReverse
+                                           usingBlock:^(NSString * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                if (![obj hasPrefix:@"!"]) {
+                    containInclusion = YES;
+                    *stop = YES;
+                }
+            }];
+            if (classFilters.count && containInclusion && ![classFilters containsObject:@"!*"]) {
+                classFilters = [classFilters arrayByAddingObject:@"!*"];
+            }
+            
             NSArray<NSString *> *exclusionPatterns
                     = assembleExclusionPatterns(commandLineExclusionPatterns);
 
@@ -457,6 +508,9 @@ int main(int argc, char *argv[])
             visitor.classFilters = classFilters;
             visitor.exclusionPatterns = exclusionPatterns;
             visitor.diagnosticFilesPrefix = diagnosticFilesPrefix;
+            visitor.randomStrLen = randomStrLen;
+            visitor.keepMethname = shouldKeepMethname;
+            visitor.methodNameOnly = methodNameOnly;
             if (frameworkName) {
                 visitor.frameworkName = frameworkName;
             } else {
@@ -471,6 +525,7 @@ int main(int argc, char *argv[])
 
             [classDump recursivelyVisit:visitor];
             CDSymbolMapper *mapper = [[CDSymbolMapper alloc] init];
+            mapper.invertOutput = shouldInvertOutput;
             [mapper writeSymbolsFromSymbolsVisitor:visitor toFile:symbolMappingPath];
         } else if(shouldObfuscate){
             if ((xibBaseDirectory != nil)

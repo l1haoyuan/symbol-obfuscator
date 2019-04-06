@@ -7,11 +7,16 @@
 
 
 @interface CDSymbolsGeneratorVisitor : CDVisitor
+
 @property (nonatomic, copy) NSArray<NSString *> *classFilters;
 @property (nonatomic, copy) NSArray<NSString *> *exclusionPatterns;
 @property (nonatomic, readonly) NSDictionary *symbols;
 @property (nonatomic, copy) NSString *diagnosticFilesPrefix;
 @property (nonatomic, copy) NSString *frameworkName;
+
+@property (nonatomic, assign) NSInteger randomStrLen;
+@property (nonatomic, assign) BOOL keepMethname;
+@property (nonatomic, assign) BOOL methodNameOnly;
 
 + (void)appendDefineTo:(NSMutableString *)stringBuilder
               renaming:(NSString *)oldName

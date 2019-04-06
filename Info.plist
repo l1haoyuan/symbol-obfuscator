@@ -5,10 +5,10 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.preemptive.ppios-rename</string>
+	<string>com.lihaoyuan.symbol-obfuscator</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ppios-rename</string>
+	<string>symbol-obfuscator</string>
 </dict>
 </plist>

@@ -4,12 +4,16 @@
 @implementation CDSymbolMapper
 
 - (void)writeSymbolsFromSymbolsVisitor:(CDSymbolsGeneratorVisitor *)visitor toFile:(NSString *)file {
-    NSMutableDictionary *invertedSymbols = [NSMutableDictionary dictionary];
-    for (NSString *key in [visitor.symbols allKeys]) {
-        invertedSymbols[visitor.symbols[key]] = key;
+    NSDictionary *symbols = visitor.symbols;
+    if (self.invertOutput) {
+        NSMutableDictionary *invertedSymbols = [NSMutableDictionary dictionary];
+        for (NSString *key in [visitor.symbols allKeys]) {
+            invertedSymbols[visitor.symbols[key]] = key;
+        }
+        symbols = [invertedSymbols copy];
     }
 
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:invertedSymbols options:NSJSONWritingPrettyPrinted error:nil];
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:symbols options:NSJSONWritingPrettyPrinted error:nil];
     [jsonData writeToFile:file atomically:YES];
 }
 

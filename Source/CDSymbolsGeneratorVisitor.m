@@ -240,7 +240,7 @@ static NSString *const lettersSet[maxLettersSet] = {
                          error:&error];
 
     if (error) {
-        NSLog(@"ppios-rename: error: unable to write list: %@ reason: %@",
+        NSLog(@"symbol-obfuscator: error: unable to write list: %@ reason: %@",
                 filename,
                 [error localizedFailureReason]);
         exit(1);
@@ -299,27 +299,27 @@ static NSString *const lettersSet[maxLettersSet] = {
     return false;
 }
 
-- (NSString *)generateRandomStringWithPrefix:(NSString *)prefix  andName:(NSString *)originalName{
-    if(_guardName == nil ) {
-        //fairly expensive to check over everything, so only do this once
-        NSString *guard = @"X__PPIOS_DOUBLE_OBFUSCATION_GUARD__";
-        //exclude all symbols in case what was obfuscated was a property
-        NSSet* symbols = [NSSet setWithObjects:guard, [@"_" stringByAppendingString:guard], [@"set" stringByAppendingString:guard], nil];
-
-        if([self checkForExistingSymbols:symbols]) {
-            //contains guard string.. (in case it's a name like setGuardName.. )
-            fprintf(stderr, "Error: Analyzing an already obfuscated binary. This will result in an unobfuscated binary. Please see the documentation for details.\n");
-            exit(9);
-        }
-        _guardName = originalName;
-        return guard;
-    }
+- (NSString *)generateRandomStringWithPrefix:(NSString *)prefix andName:(NSString *)originalName {
+//    if(_guardName == nil ) {
+//        //fairly expensive to check over everything, so only do this once
+//        NSString *guard = @"X__PPIOS_DOUBLE_OBFUSCATION_GUARD__";
+//        //exclude all symbols in case what was obfuscated was a property
+//        NSSet* symbols = [NSSet setWithObjects:guard, [@"_" stringByAppendingString:guard], [@"set" stringByAppendingString:guard], nil];
+//
+//        if([self checkForExistingSymbols:symbols]) {
+//            //contains guard string.. (in case it's a name like setGuardName.. )
+//            fprintf(stderr, "Error: Analyzing an already obfuscated binary. This will result in an unobfuscated binary. Please see the documentation for details.\n");
+//            exit(9);
+//        }
+//        _guardName = originalName;
+//        return guard;
+//    }
     if([originalName isEqualToString:_guardName]){
         //For some reason obfuscating the same name again..
         //Maybe there is a conflict in a property, so generate a new name and let the guard be inserted later
         _guardName = nil;
     }
-    NSInteger length = 8;
+    NSInteger length = self.randomStrLen > 0 ? self.randomStrLen : originalName.length;
     while (true) {
         NSMutableString *randomString = [NSMutableString stringWithCapacity:length];
         if (prefix) {
@@ -341,10 +341,6 @@ static NSString *const lettersSet[maxLettersSet] = {
     }
 }
 
-- (NSString *)generateRandomString:(NSString *)originalName{
-    return [self generateRandomStringWithPrefix:nil andName:originalName];
-}
-
 - (BOOL)doesContainGeneratedSymbol:(NSString *)symbol {
     return _symbols[symbol] != nil;
 }
@@ -356,7 +352,7 @@ static NSString *const lettersSet[maxLettersSet] = {
     if ([self shouldSymbolsBeIgnored:symbolName]) {
         return;
     }
-    NSString *newSymbolName = [self generateRandomString:symbolName];
+    NSString *newSymbolName = [self generateRandomStringWithPrefix:nil andName:symbolName];
     [self addGenerated:newSymbolName forSymbol:symbolName];
 }
 
@@ -431,6 +427,21 @@ static NSString *const lettersSet[maxLettersSet] = {
     }
 }
 
+- (NSString *)randomNameForSymbol:(NSString *)symbolName prefix:(NSString *)prefix {
+    NSString *symbol = [symbolName copy];
+    for (NSString *com in [symbol componentsSeparatedByString:@":"]) {
+        NSRange range = [symbol rangeOfString:com];
+        NSString *tmp = com;
+        if ([com length] > 0) {
+            tmp = [self generateRandomStringWithPrefix:(range.location == 0 ? prefix : nil) andName:com];
+        }
+        if (range.location != NSNotFound) {
+            symbol = [symbol stringByReplacingCharactersInRange:range withString:tmp];
+        }
+    }
+    return symbol;
+}
+
 - (void)generateMethodSymbols:(NSString *)symbolName {
     NSString *getterName = [self getterNameForMethodName:symbolName];
     NSString *setterName = [self setterNameForMethodName:symbolName];
@@ -443,13 +454,12 @@ static NSString *const lettersSet[maxLettersSet] = {
     }
     if ([self isInitMethod:symbolName]) {
         NSString *initPrefix = @"initL";
-        NSString *newSymbolName = [self generateRandomStringWithPrefix:initPrefix andName:symbolName];
-        [self addGenerated:newSymbolName forSymbol:symbolName];
+        NSString *symbol = [self randomNameForSymbol:symbolName prefix:initPrefix];
+        [self addGenerated:symbol forSymbol:symbolName];
     } else {
-        NSString *newSymbolName = [self generateRandomString:symbolName];
-        [self addGenerated:newSymbolName forSymbol:getterName];
-        // Why is this being added?
-        [self addGenerated:[@"set" stringByAppendingString:[newSymbolName capitalizeFirstCharacter]] forSymbol:setterName];
+        NSString *symbol = [self randomNameForSymbol:getterName prefix:nil];
+        [self addGenerated:symbol forSymbol:getterName];
+        [self addGenerated:[@"set" stringByAppendingString:[symbol capitalizeFirstCharacter]] forSymbol:setterName];
     }
 }
 
@@ -664,6 +674,11 @@ static NSString *const lettersSet[maxLettersSet] = {
         _ignored = YES;
     } else {
         NSLog(@"Adding @protocol %@", protocol.name);
+        
+        if (self.methodNameOnly) {
+            self.exclusionPatterns = [self.exclusionPatterns arrayByAddingObject:protocol.name];
+        }
+        
         [_protocolNames addObject:protocol.name];
         _ignored = NO;
     }
@@ -685,6 +700,11 @@ static NSString *const lettersSet[maxLettersSet] = {
         _ignored = YES;
     } else {
         NSLog(@"Adding @class %@", aClass.name);
+        
+        if (self.methodNameOnly) {
+            self.exclusionPatterns = [self.exclusionPatterns arrayByAddingObject:aClass.name];
+        }
+        
         [_classNames addObject:aClass.name];
         _ignored = NO;
     }
@@ -699,6 +719,11 @@ static NSString *const lettersSet[maxLettersSet] = {
         _ignored = YES;
     } else {
         NSLog(@"Adding @category %@+%@", category.className, category.name);
+        
+        if (self.methodNameOnly) {
+            self.exclusionPatterns = [self.exclusionPatterns arrayByAddingObject:category.name];
+        }
+        
         [_categoryNames addObject:category.name];
         _ignored = NO;
     }
@@ -709,12 +734,22 @@ static NSString *const lettersSet[maxLettersSet] = {
 }
 
 - (void)visitAndExplodeMethod:(NSString *)method {
-    for (NSString *component in [method componentsSeparatedByString:@":"]) {
-        if ([component length]) {
+    if (self.keepMethname) {
+        if ([method length]) {
             if (_ignored) {
-                [self addForbiddenSymbol:component];
+                [self addForbiddenSymbol:method];
             } else {
-                [_methodNames addObject:component];
+                [_methodNames addObject:method];
+            }
+        }
+    } else {
+        for (NSString *component in [method componentsSeparatedByString:@":"]) {
+            if ([component length]) {
+                if (_ignored) {
+                    [self addForbiddenSymbol:component];
+                } else {
+                    [_methodNames addObject:component];
+                }
             }
         }
     }

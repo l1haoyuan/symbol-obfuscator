@@ -4,7 +4,7 @@
 *************************************************/
 
 //
-// Prefix header for all source files of the 'ppios-rename' target in the 'ppios-rename' project.
+// Prefix header for all source files of the 'symbol-obfuscator' target in the 'symbol-obfuscator' project.
 //
 
 #ifdef __OBJC__
